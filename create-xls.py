@@ -1,14 +1,34 @@
 # -*- coding: utf-8 -*-
 
 import xlwt
-from itertools import chain
 import pandas as pd
+from optparse import OptionParser
 
-n_measurements = 21
-points_desc_filename = 'points-desc.csv'
+from itertools import chain
+import sys
+
+parser = OptionParser()
+parser.add_option("-d", "--desc", dest="desc_file",
+                  help="Points file descriptor", metavar="FILE")
+parser.add_option("-n", "--ntables", dest="n_measurements",
+                  help="Number of tables")
+parser.add_option("-o", "--output", dest="out_file",
+                  help="Output file", metavar="FILE")
+
+(options, args) = parser.parse_args()
+
+if len(sys.argv) != 7:
+    parser.print_help()
+    sys.exit()
+
+n_measurements = int(options.n_measurements)
+points_desc_filename = options.desc_file
+output_filename = options.out_file
+
 points = {}
 dists  = {}
 rep_dists = {}
+
 
 # Import points
 
@@ -18,9 +38,9 @@ points['dorsal'] = points_desc['ponto.dorsal'][points_desc['ponto.dorsal'] != ''
 points['ventral'] = points_desc['ponto.ventral'][points_desc['ponto.ventral'] != '']
 dists['dorsal'] = points_desc['controle.dorsal'][points_desc['controle.dorsal'] != ''].map(lambda x: x.split('.')).values
 dists['ventral'] = points_desc['controle.ventral'][points_desc['controle.ventral'] != ''].map(lambda x: x.split('.')).values
-rep_dists['dorsal'] = points_desc['calc.dist.dorsal'][points_desc['calc.dist.dorsal'] != ''].map(lambda x: x.split('.')).values
-rep_dists['ventral'] = points_desc['calc.dist.ventral'][points_desc['calc.dist.ventral'] != ''].map(lambda x: x.split('.')).values
-final_dists = points_desc['seq.dist.mx'].dropna().map(lambda x: x.split('.')).values
+#rep_dists['dorsal'] = points_desc['calc.dist.dorsal'][points_desc['calc.dist.dorsal'] != ''].map(lambda x: x.split('.')).values
+#rep_dists['ventral'] = points_desc['calc.dist.ventral'][points_desc['calc.dist.ventral'] != ''].map(lambda x: x.split('.')).values
+#final_dists = points_desc['seq.dist.mx'].dropna().map(lambda x: x.split('.')).values
 
 points_cells = {}
 dists_cells = {}
@@ -31,12 +51,12 @@ vistas_col = info_col + 1
 n_vistas = len(points.keys())
 n_dists = len(dists.keys())
 dists_col = vistas_col + 7*n_vistas
-rep_col = dists_col + 4*n_dists
-final_dists_col = rep_col + 3*n_vistas
+#rep_col = dists_col + 4*n_dists
+#final_dists_col = rep_col + 3*n_vistas
 
 # Maximum number of points in a vista
-max_n_points = max([len(ps) for ps in chain(points.values(), dists.values())] + [len(final_dists)])
-line = -1
+max_n_points = max([len(ps) for ps in chain(points.values(), dists.values())])
+line = 1
 
 new_xls = xlwt.Workbook()
 data = new_xls.add_sheet('Dados')
@@ -87,20 +107,19 @@ def write_header(info, line, data, dists, points):
         data.write(line, dists_col + 4*vi + 2, 'Medida 2')
         data.write(line, dists_col + 4*vi + 3, u'Diferença')
 
-    for vi, vista in enumerate(rep_dists.keys()):
-        data.write(line, rep_col + 3*vi, "dist. " + vista)
-        data.write(line, rep_col + 3*vi + 1, 'Medida 1')
-        data.write(line, rep_col + 3*vi + 2, 'Medida 2')
-
-    data.write(line, final_dists_col, 'Dist. Final')
-    data.write(line, final_dists_col + 1, 'Valor')
+#    for vi, vista in enumerate(rep_dists.keys()):
+#        data.write(line, rep_col + 3*vi, "dist. " + vista)
+#        data.write(line, rep_col + 3*vi + 1, 'Medida 1')
+#        data.write(line, rep_col + 3*vi + 2, 'Medida 2')
+#
+#    data.write(line, final_dists_col, 'Dist. Final')
+#    data.write(line, final_dists_col + 1, 'Valor')
 
 form_string = 'IF(AND({}<>0,{}<>0),SQRT(({}-{})^2+({}-{})^2+({}-{})^2),"")'
 diff_form_string = "ABS({}-{})"
 
 for mi in range(n_measurements):
     points_dict = {}
-    line += mi*max_n_points + 2
     write_header(mi, line - 1, data, dists, points)
 
     # Create points tables
@@ -115,7 +134,6 @@ for mi in range(n_measurements):
     for vi, vista in enumerate(dists.keys()):
         vi_col = dists_col + 4*vi
         for di, d in enumerate(dists[vista]):
-            print d
             # Write distance d in (line + di, vi_col)
             data.write(line + di, vi_col, '-'.join(d))
             # Write formula for distance
@@ -151,15 +169,17 @@ for mi in range(n_measurements):
             diff_formula = xlwt.Formula(diff_form_string.format(diff_1, diff_2))
             data.write(line + di, vi_col + 3, diff_formula)
 
-    # Create repeatability tables
-    for vi, vista in enumerate(rep_dists.keys()):
-        vi_col = rep_col + 3*vi
-        for di, d in enumerate(rep_dists[vista]):
-            # Write
-            data.write(line + di, vi_col, '-'.join(d))
+#    # Create repeatability tables
+#    for vi, vista in enumerate(rep_dists.keys()):
+#        vi_col = rep_col + 3*vi
+#        for di, d in enumerate(rep_dists[vista]):
+#            # Write
+#            data.write(line + di, vi_col, '-'.join(d))
+#
+#    # Create final data table
+#    for di, d in enumerate(final_dists):
+#        data.write(line + di, final_dists_col, '-'.join(d))
 
-    # Create final data table
-    for di, d in enumerate(final_dists):
-        data.write(line + di, final_dists_col, '-'.join(d))
+    line += max_n_points + 2
 
-new_xls.save('new.xls')
+new_xls.save(output_filename)
